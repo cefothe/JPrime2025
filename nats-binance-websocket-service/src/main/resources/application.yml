@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: binance-websocket-service
+server:
+  port: 8080
+nats:
+  url: nats://localhost:4222
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus, health
+  metrics:
+    export:
+      prometheus:
+        enabled: true

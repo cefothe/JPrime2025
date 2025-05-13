@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: binance-websocket-service-kafka
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: binance-websocket-service-kafka
+  template:
+    metadata:
+      labels:
+        app: binance-websocket-service-kafka
+    spec:
+      containers:
+        - name: binance-websocket-service-kafka
+          image: binance-websocket-service-kafka:1.0.0
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka-cluster-kafka-bootstrap.kafka:9092"
+            - name: SPRING_KAFKA_PRODUCER_PROPERTIES_LINGER_MS
+              value: "0"
+            - name: SPRING_KAFKA_PRODUCER_PROPERTIES_BATCH_SIZE
+              value: "16384"
+            - name: SPRING_KAFKA_PRODUCER_PROPERTIES_ACKS
+              value: "1"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: latency-measurement-service-kafka
+                topologyKey: "kubernetes.io/hostname"

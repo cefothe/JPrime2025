@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: latency-measurement-service
+  kafka:
+    bootstrap-servers: localhost:29092
+    consumer:
+      group-id: latency-measurement-group
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: eu.stefanangelov.jprime2025.kafka.websocket.model
+        max.poll.records: 100
+        fetch.min.bytes: 1
+        max.poll.interval.ms: 100
+server:
+  port: 8081
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus, health
+  metrics:
+    export:
+      prometheus:
+        enabled: true
