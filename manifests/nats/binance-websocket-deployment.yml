@@ -1,34 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: binance-websocket-service-kafka
+  name: binance-websocket-service-nats
   namespace: default
 spec:
   replicas: 1
   selector:
     matchLabels:
       project: spring
-      app: binance-websocket-service-kafka
+      app: binance-websocket-service-nats
   template:
     metadata:
       labels:
         project: spring
-        app: binance-websocket-service-kafka
+        app: binance-websocket-service-nats
     spec:
       containers:
-        - name: binance-websocket-service-kafka
-          image: cefothe/binance-websocket-service-kafka:1.0.1
+        - name: binance-websocket-service-nats
+          image: cefothe/binance-websocket-service-nats:1.0.1
           ports:
             - containerPort: 8080
           env:
-            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-              value: "kafka-cluster-kafka-bootstrap.kafka:9092"
-            - name: SPRING_KAFKA_PRODUCER_PROPERTIES_LINGER_MS
-              value: "0"
-            - name: SPRING_KAFKA_PRODUCER_PROPERTIES_BATCH_SIZE
-              value: "16384"
-            - name: SPRING_KAFKA_PRODUCER_PROPERTIES_ACKS
-              value: "1"
+            - name: NATS_URL
+              value: "nats://nats:4222"
           resources:
             requests:
               cpu: "200m"

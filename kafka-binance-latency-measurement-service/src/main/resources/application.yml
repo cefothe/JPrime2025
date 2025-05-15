@@ -12,7 +12,7 @@ spring:
         spring.json.trusted.packages: eu.stefanangelov.jprime2025.kafka.websocket.model
         max.poll.records: 100
         fetch.min.bytes: 1
-        max.poll.interval.ms: 100
+        max.poll.interval.ms: 400
 server:
   port: 8081
 management:

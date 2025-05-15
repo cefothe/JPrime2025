@@ -4,7 +4,7 @@ spring:
 server:
   port: 8081
 nats:
-  url: nats://localhost:4222
+  url: ${NATS_URL:nats://localhost:4222}
 management:
   endpoints:
     web:

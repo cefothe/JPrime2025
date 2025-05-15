@@ -1,40 +1,45 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: binance-websocket-service-kafka
+  name: kafka-binance-latency-measurement-service
   namespace: default
 spec:
   replicas: 1
   selector:
     matchLabels:
       project: spring
-      app: binance-websocket-service-kafka
+      app: kafka-binance-latency-measurement-service
   template:
     metadata:
       labels:
         project: spring
-        app: binance-websocket-service-kafka
+        app: kafka-binance-latency-measurement-service
+      annotations:
+        prometheus.io/scrape: "true"       # Enables scraping
+        prometheus.io/path: "/actuator/prometheus"  # Metrics path
+        prometheus.io/port: "8080"         # Metrics port
     spec:
       containers:
-        - name: binance-websocket-service-kafka
-          image: cefothe/binance-websocket-service-kafka:1.0.1
+        - name: kafka-binance-latency-measurement-service
+          image: cefothe/kafka-binance-latency-measurement-service:1.0.3
           ports:
             - containerPort: 8080
+              name: http
           env:
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               value: "kafka-cluster-kafka-bootstrap.kafka:9092"
-            - name: SPRING_KAFKA_PRODUCER_PROPERTIES_LINGER_MS
-              value: "0"
+            - name: SPRING_KAFKA_CONSUMER_PROPERTIES_MAX_POLL_INTERVAL_MS
+              value: "500"
             - name: SPRING_KAFKA_PRODUCER_PROPERTIES_BATCH_SIZE
               value: "16384"
             - name: SPRING_KAFKA_PRODUCER_PROPERTIES_ACKS
               value: "1"
           resources:
             requests:
-              cpu: "200m"
+              cpu: "1000m"
               memory: "512Mi"
             limits:
-              cpu: "500m"
+              cpu: "1000m"
               memory: "1Gi"
       affinity:
         podAffinity:
@@ -43,5 +48,5 @@ spec:
               podAffinityTerm:
                 labelSelector:
                   matchLabels:
-                    app: latency-measurement-service-kafka
+                    app: kafka-binance-latency-measurement-service
                 topologyKey: "kubernetes.io/hostname"

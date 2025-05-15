@@ -1,0 +1,165 @@
+---
+# ConfigMap for Aeron channel configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aeron-config
+  namespace: default
+data:
+  aeron.channel: "aeron:udp?endpoint=aeron-service:40123|control=aeron-service:40124|control-mode=dynamic"
+---
+# Service to expose the data and control ports for Aeron communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: aeron-service
+  namespace: default
+spec:
+  selector:
+    app.kubernetes.io/component: aeron
+  ports:
+    - name: aeron-data
+      protocol: UDP
+      port: 40123
+      targetPort: 40123
+    - name: aeron-control
+      protocol: UDP
+      port: 40124
+      targetPort: 40124
+  type: ClusterIP
+---
+# Deployment for the BinanceWebSocketClient (publisher)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: binance-websocket-client
+  namespace: default
+  labels:
+    app.kubernetes.io/component: aeron
+    app.kubernetes.io/name: binance-websocket-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: aeron
+      app.kubernetes.io/name: binance-websocket-client
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: aeron
+        app.kubernetes.io/name: binance-websocket-client
+    spec:
+      containers:
+        - name: publisher
+          image: cefothe/aeron-binance-websocket-service:1.0.1
+          env:
+            - name: AERON_CHANNEL
+              valueFrom:
+                configMapKeyRef:
+                  name: aeron-config
+                  key: aeron.channel
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+            requests:
+              cpu: "0.5"
+              memory: "256Mi"
+          ports:
+            - name: aeron-data
+              containerPort: 40123
+              protocol: UDP
+            - name: aeron-control
+              containerPort: 40124
+              protocol: UDP
+          volumeMounts:
+            - name: aeron-dir
+              mountPath: /aeron
+      volumes:
+        - name: aeron-dir
+          emptyDir: {}
+---
+# Deployment for the BookTickerSubscriber (subscriber)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: book-ticker-subscriber
+  namespace: default
+  labels:
+    app.kubernetes.io/component: aeron
+    app.kubernetes.io/name: book-ticker-subscriber
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: aeron
+      app.kubernetes.io/name: book-ticker-subscriber
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: aeron
+        app.kubernetes.io/name: book-ticker-subscriber
+    spec:
+      containers:
+        - name: subscriber
+          image: cefothe/aeron-binance-latency-measurement-service:1.0.1
+          env:
+            - name: AERON_CHANNEL
+              valueFrom:
+                configMapKeyRef:
+                  name: aeron-config
+                  key: aeron.channel
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+            requests:
+              cpu: "0.5"
+              memory: "256Mi"
+          ports:
+            - name: aeron-data
+              containerPort: 40123
+              protocol: UDP
+            - name: aeron-control
+              containerPort: 40124
+              protocol: UDP
+          volumeMounts:
+            - name: aeron-dir
+              mountPath: /aeron
+      volumes:
+        - name: aeron-dir
+          emptyDir: {}
+---
+# NetworkPolicy to allow UDP traffic for Aeron
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-aeron-udp
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: aeron
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: UDP
+          port: 40123
+        - protocol: UDP
+          port: 40124
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 40123
+        - protocol: UDP
+          port: 40124

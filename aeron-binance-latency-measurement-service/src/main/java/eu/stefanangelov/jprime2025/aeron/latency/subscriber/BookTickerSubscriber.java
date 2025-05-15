@@ -6,6 +6,7 @@ import io.aeron.Aeron;
 import io.aeron.Subscription;
 import io.aeron.driver.MediaDriver;
 import io.aeron.driver.ThreadingMode;
+import io.aeron.driver.MaxMulticastFlowControlSupplier;
 import io.aeron.logbuffer.FragmentHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -13,10 +14,10 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.agrona.concurrent.BusySpinIdleStrategy;
-
-import java.time.Duration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 
 @Slf4j
 @Component
@@ -25,24 +26,31 @@ public class BookTickerSubscriber {
     private final Aeron aeron;
     private final Subscription subscription;
     private final ObjectMapper objectMapper = new ObjectMapper();
-
     private final MeterRegistry meterRegistry;
     private final Timer latencyTimer;
+    private final MediaDriver mediaDriver;
 
-    public BookTickerSubscriber(MeterRegistry meterRegistry) {
+    public BookTickerSubscriber(
+            MeterRegistry meterRegistry,
+            @Value("${AERON_CHANNEL:aeron:udp?endpoint=LOCALHOST:0|control=localhost:40123|control-mode=dynamic}") String aeronChannel) {
 
+
+        // Configure MediaDriver
         final MediaDriver.Context mediaDriverCtx = new MediaDriver.Context()
                 .dirDeleteOnStart(true)
+                .dirDeleteOnShutdown(true)
+                .spiesSimulateConnection(true)
                 .threadingMode(ThreadingMode.DEDICATED)
+                .multicastFlowControlSupplier(new MaxMulticastFlowControlSupplier())
                 .conductorIdleStrategy(new BusySpinIdleStrategy())
                 .senderIdleStrategy(new BusySpinIdleStrategy())
-                .aeronDirectoryName("/Users/stefanangelov/Documents/workspace/JPrime2025/aeron-binance-latency-measurement-service/aeron")
                 .receiverIdleStrategy(new BusySpinIdleStrategy());
 
-        final MediaDriver mediaDriver = MediaDriver.launchEmbedded(mediaDriverCtx);
-        Aeron.Context context = new Aeron.Context().aeronDirectoryName(mediaDriver.aeronDirectoryName());
-        aeron = Aeron.connect(context);
-        subscription = aeron.addSubscription("aeron:udp?endpoint=localhost:40123|alias=book-ticker", 1001);
+        this.mediaDriver = MediaDriver.launchEmbedded(mediaDriverCtx);
+        Aeron.Context context = new Aeron.Context()
+                .aeronDirectoryName(mediaDriver.aeronDirectoryName());
+        this.aeron = Aeron.connect(context);
+        this.subscription = aeron.addSubscription(aeronChannel, 100);
         this.meterRegistry = meterRegistry;
         this.latencyTimer = Timer.builder("aeron.latency")
                 .description("Latency of messages received via Aeron")
@@ -59,7 +67,7 @@ public class BookTickerSubscriber {
                 BookTicker bookTicker = objectMapper.readValue(buffer.getStringAscii(offset), BookTicker.class);
                 long latencyNs = now - bookTicker.getTimestamp();
                 double latencyMs = latencyNs / 1_000_000.0;
-                latencyTimer.record((Duration.ofNanos(latencyNs)));
+                latencyTimer.record(Duration.ofNanos(latencyNs));
                 log.info("Received book ticker: {}, Latency: {} ms", bookTicker.getSymbol(), latencyMs);
             } catch (Exception e) {
                 log.error("Error processing message", e);
@@ -76,7 +84,26 @@ public class BookTickerSubscriber {
 
     @PreDestroy
     public void close() {
-        subscription.close();
-        aeron.close();
+        try {
+            if (subscription != null && !subscription.isClosed()) {
+                subscription.close();
+            }
+        } catch (Exception e) {
+            log.error("Error closing subscription", e);
+        }
+        try {
+            if (aeron != null && !aeron.isClosed()) {
+                aeron.close();
+            }
+        } catch (Exception e) {
+            log.error("Error closing Aeron", e);
+        }
+        try {
+            if (mediaDriver != null ) {
+                mediaDriver.close();
+            }
+        } catch (Exception e) {
+            log.error("Error closing MediaDriver", e);
+        }
     }
 }

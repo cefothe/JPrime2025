@@ -2,7 +2,7 @@ spring:
   application:
     name: latency-measurement-service
 server:
-  port: 0
+  port: 8082
 
 management:
   endpoints:

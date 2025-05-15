@@ -2,8 +2,12 @@ version: '3'
 services:
   nats:
     image: nats:2.10
+    command: ["-js"] # Enable JetStream
     ports:
       - "4222:4222"
+      - "6222:6222" # For clustering
+      - "8222:8222" # For monitoring
+
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     environment:
@@ -23,4 +27,4 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
-        - "29092:29092"
+      - "29092:29092"

@@ -36,7 +36,7 @@ public class BookTickerConsumer {
 
     @PostConstruct
     public void startSubscription() {
-        subscription = natsConnection.subscribe("book.ticker"); // Use Connection.subscribe instead of JetStream
+        subscription = natsConnection.subscribe("book.ticker.BTCUSDT"); // Use Connection.subscribe instead of JetStream
         new Thread(() -> {
             while (!Thread.interrupted()) {
                 try {
